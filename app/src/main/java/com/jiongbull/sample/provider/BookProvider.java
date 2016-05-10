@@ -3,6 +3,7 @@ package com.jiongbull.sample.provider;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.SQLException;
@@ -25,6 +26,7 @@ public class BookProvider extends ContentProvider {
     /** uri匹配book id的标识. */
     private static final int BOOK_ID = 2;
 
+    private Context mContext;
     private DbHelper mDbHelper;
 
     /** uri适配器. */
@@ -50,7 +52,8 @@ public class BookProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
-        mDbHelper = new DbHelper(getContext());
+        mContext = getContext();
+        mDbHelper = new DbHelper(mContext);
         return true;
     }
 
@@ -74,7 +77,7 @@ public class BookProvider extends ContentProvider {
         String orderBy = TextUtils.isEmpty(sortOrder) ? BookMetaData.Book.DEFAULT_SORT_ORDER : sortOrder;
         SQLiteDatabase db = mDbHelper.getReadableDatabase();
 
-        return queryBuilder.query(
+        Cursor cursor = queryBuilder.query(
                 db,
                 projection,
                 selection,
@@ -82,6 +85,8 @@ public class BookProvider extends ContentProvider {
                 null,
                 null,
                 orderBy);
+        cursor.setNotificationUri(mContext.getContentResolver(), uri);
+        return cursor;
     }
 
     @Nullable
@@ -108,7 +113,9 @@ public class BookProvider extends ContentProvider {
         long rowId = db.insert(BookMetaData.Book.TABLE_NAME, null, values);
 
         if (rowId > 0) {
-            return ContentUris.withAppendedId(BookMetaData.Book.CONTENT_URI, rowId);
+            Uri bookUri = ContentUris.withAppendedId(BookMetaData.Book.CONTENT_URI, rowId);
+            mContext.getContentResolver().notifyChange(bookUri, null);
+            return bookUri;
         }
         throw new SQLException("Failed to insert row into " + uri);
     }
@@ -132,6 +139,7 @@ public class BookProvider extends ContentProvider {
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
         }
+        mContext.getContentResolver().notifyChange(uri, null);
         return count;
     }
 
@@ -154,6 +162,7 @@ public class BookProvider extends ContentProvider {
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
         }
+        mContext.getContentResolver().notifyChange(uri, null);
         return count;
     }
 }
